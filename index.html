@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Xem Bóng Đá Cùng Mẹ (P2P)</title>
-    <!-- Thư viện PeerJS để kết nối trực tiếp -->
+    <title>Xem Bóng Đá Cùng Mẹ</title>
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
-            --accent: #3b82f6; --accent-hover: #2563eb; --border: #334155;
+            --accent: #3b82f6; --success: #22c55e; --border: #334155;
             padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
         @media (prefers-color-scheme: light) {
@@ -19,352 +18,285 @@
         body {
             margin: 0; background: var(--bg); color: var(--text);
             font-family: -apple-system, system-ui, sans-serif;
-            display: flex; flex-direction: column; align-items: center; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
         }
         .card {
-            background: var(--card); border: 1px solid var(--border); border-radius: 20px;
-            padding: 24px; max-width: 450px; width: 100%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            background: var(--card); border: 1px solid var(--border); border-radius: 24px;
+            padding: 24px; max-width: 450px; width: 92%; margin-top: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
         }
-        h1 { font-size: 1.25rem; margin: 0 0 8px; font-weight: 700; }
-        p.sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.4; }
+        h1 { font-size: 1.4rem; margin: 0 0 10px; text-align: center; }
+        .sub { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 20px; }
 
         .btn {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer;
-            transition: all 0.2s; border: none; font-size: 1rem;
+            width: 100%; padding: 16px; border-radius: 16px; font-weight: 700; cursor: pointer;
+            border: none; font-size: 1.1rem; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
         }
         .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:active { background: var(--accent-hover); transform: scale(0.98); }
-        .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); margin-top: 10px; }
+        .btn-primary:disabled { background: var(--muted); opacity: 0.6; cursor: not-allowed; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); margin-top: 10px; }
 
         .hidden { display: none !important; }
         .code-box {
-            font-size: 2.5rem; font-weight: 800; text-align: center; letter-spacing: 5px;
-            background: var(--bg); border: 2px dashed var(--border); border-radius: 15px;
-            padding: 15px; margin: 15px 0; color: var(--accent);
-        }
-        .link-area { display: flex; gap: 8px; margin-bottom: 15px; }
-        input {
-            flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
-            background: var(--bg); color: var(--text); font-size: 0.9rem;
+            font-size: 2.8rem; font-weight: 800; text-align: center; letter-spacing: 6px;
+            color: var(--accent); background: var(--bg); padding: 20px; border-radius: 20px; margin: 15px 0;
         }
 
-        /* Giao diện Video Viewer */
-        #videoContainer {
-            position: fixed; inset: 0; background: #000; z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
+        /* Dashboard của Con */
+        .status-item {
+            display: flex; justify-content: space-between; padding: 10px 0;
+            border-bottom: 1px solid var(--border); font-size: 0.9rem;
         }
+        .status-val { font-weight: 600; }
+        .check-ok { color: var(--success); }
+
+        /* Màn hình của Mẹ */
+        #videoContainer { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* Ép xoay màn hình bằng CSS cho Viewer trên mobile */
-        .force-landscape {
-            transform: rotate(90deg);
-            width: 100vh !important; height: 100vw !important;
-        }
+        .force-landscape { transform: rotate(90deg); width: 100vh !important; height: 100vw !important; }
 
         .overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 2000; text-align: center; color: white; padding: 20px;
+            z-index: 2000; color: white; text-align: center; padding: 30px;
         }
-
-        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online { background: #22c55e; }
-        .offline { background: #ef4444; }
-
-        .small-info { font-size: 0.75rem; color: var(--muted); margin-top: 15px; line-height: 1.4; }
+        .pulse-btn {
+            width: 180px; height: 180px; border-radius: 50%; background: var(--accent);
+            color: white; border: none; font-size: 1.3rem; font-weight: 800;
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 30px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
     </style>
 </head>
 <body>
 
-<!-- CHỌN VAI TRÒ -->
-<div id="setupView" class="card">
-    <h1>Xem cùng trực tiếp (P2P)</h1>
-    <p class="sub">Kết nối trực tiếp giữa hai máy, không qua server trung gian. Mượt hơn, nét hơn.</p>
-    <button class="btn btn-primary" onclick="initHost()">🖥️ Mình là người phát (Host)</button>
-    <button class="btn btn-secondary" onclick="initViewer()">📱 Mình là người xem (Viewer)</button>
-    <p class="small-info">Nên dùng Chrome trên Laptop và Safari/Chrome trên điện thoại.</p>
+<!-- MÀN HÌNH CHỌN (Chỉ hiện nếu không có link) -->
+<div id="view-start" class="card">
+    <h1>Xem Cùng P2P</h1>
+    <p class="sub">Kết nối trực tiếp, không qua trung gian</p>
+    <button class="btn btn-primary" onclick="showHost()">🖥️ Con là người phát</button>
+    <button class="btn btn-outline" onclick="showViewer()">📱 Mẹ là người xem</button>
 </div>
 
-<!-- GIAO DIỆN HOST -->
-<div id="hostView" class="card hidden">
-    <h1>Chia sẻ màn hình</h1>
-    <p class="sub">Gửi mã hoặc link này cho mẹ để mẹ vào xem:</p>
-    <div class="code-box" id="displayCode">----</div>
-    <div class="link-area">
-        <input id="shareLink" readonly>
-        <button class="btn btn-primary" style="width: auto;" onclick="copyLink()">Copy</button>
-    </div>
-    <button id="btnStart" class="btn btn-primary" onclick="startSharing()">🚀 Bắt đầu chia sẻ</button>
+<!-- MÀN HÌNH CỦA CON (HOST) -->
+<div id="view-host" class="card hidden">
+    <h1>Bảng điều khiển của Con</h1>
+    <div class="code-box" id="host-code-display">----</div>
+    <button id="btn-start-share" class="btn btn-primary" onclick="startHostSharing()">🚀 Bắt đầu phát màn hình</button>
 
-    <div id="hostStatus" class="small-info" style="margin-top: 15px; padding: 10px; background: var(--bg); border-radius: 10px;">
-        Chưa bắt đầu
+    <div style="margin-top: 20px;">
+        <div class="status-item"><span>Mẹ đã vào link:</span> <span id="s-conn" class="status-val">Chưa</span></div>
+        <div class="status-item"><span>Quyền Cam/Mic:</span> <span id="s-perm" class="status-val">Chưa</span></div>
+        <div class="status-item"><span>Mẹ đang xem:</span> <span id="s-play" class="status-val">Chưa</span></div>
+        <div class="status-item"><span>Xoay màn hình:</span> <span id="s-orient" class="status-val">---</span></div>
     </div>
 
-    <div id="hostControls" class="hidden">
-        <button id="toggleMic" class="btn btn-secondary" onclick="toggleHostMic()">🎙️ Mic của con: TẮT</button>
-        <button id="toggleMomMic" class="btn btn-secondary" onclick="remoteMuteMom()">🔇 Tắt Mic của mẹ (từ xa)</button>
+    <div id="host-controls" class="hidden" style="margin-top: 15px;">
+        <button class="btn btn-outline" onclick="toggleMyMic()" id="btn-my-mic">🎙️ Mic của con: Tắt</button>
     </div>
+    <p class="sub" style="margin-top: 15px; font-size: 0.8rem;">Gửi link này cho mẹ: <br><span id="copy-link" style="color: var(--accent); cursor: pointer; text-decoration: underline;">Bấm để Copy Link</span></p>
 </div>
 
-<!-- GIAO DIỆN VIEWER NHẬP MÃ -->
-<div id="viewerInputView" class="card hidden">
-    <h1>Kết nối tới phòng</h1>
-    <p class="sub">Nhập mã 4 số được gửi cho bạn:</p>
-    <input id="inputCode" type="number" pattern="\d*" placeholder="Ví dụ: 1234" style="font-size: 1.5rem; text-align: center; margin-bottom: 15px;">
-    <button class="btn btn-primary" onclick="connectToHost()">Kết nối ngay</button>
-    <div id="viewerStatus" class="small-info"></div>
+<!-- MÀN HÌNH CỦA MẸ (VIEWER) -->
+<div id="view-viewer" class="card hidden">
+    <h1 id="v-title">Đang kết nối tới con...</h1>
+    <p class="sub" id="v-msg">Vui lòng chờ một chút để tín hiệu ổn định.</p>
+    <div id="v-loader" style="text-align: center; font-size: 2rem;">⏳</div>
 </div>
 
-<!-- OVERLAY BẤM ĐỂ XEM (Vượt rào cản Autoplay) -->
-<div id="playOverlay" class="overlay hidden">
-    <h2 style="margin-bottom: 10px;">Tín hiệu đã sẵn sàng!</h2>
-    <p style="margin-bottom: 20px; opacity: 0.8;">Bấm nút dưới đây để nghe âm thanh trận đấu</p>
-    <button class="btn btn-primary" style="width: 200px;" onclick="startWatching()">🔊 XEM NGAY</button>
+<!-- NÚT BẤM XEM NGAY CHO MẸ -->
+<div id="overlay-play" class="overlay hidden">
+    <button class="pulse-btn" onclick="momStartWatching()">XEM NGAY</button>
+    <p style="margin-top: 30px; font-size: 1.1rem;">Bấm nút xanh ở trên <br>để bắt đầu xem và nghe tiếng nhé mẹ!</p>
 </div>
 
-<!-- CONTAINER VIDEO -->
-<div id="videoContainer" class="hidden">
-    <video id="remoteVideo" playsinline webkit-playsinline></video>
+<!-- VIDEO PLAYER -->
+<div id="video-container" class="hidden">
+    <video id="main-video" playsinline webkit-playsinline></video>
 </div>
 
 <script>
-    // CẤU HÌNH KẾT NỐI (Dùng STUN/TURN để xuyên tường lửa 4G)
-    const iceConfig = {
-        iceServers: [
+    const config = { iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-        ]
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]};
+
+    let peer, conn, screenStream, micStream, mixedStream;
+    let isHost = false;
+    let code = new URLSearchParams(window.location.search).get('code') || localStorage.getItem('p2p_code') || Math.floor(1000 + Math.random() * 9000);
+
+    // --- LOGIC KHỞI TẠO TỰ ĐỘNG ---
+    window.onload = () => {
+        if (new URLSearchParams(window.location.search).has('code')) {
+            showViewer();
+        }
     };
 
-    let peer, conn, screenStream, micStream, mixedStream, momStream;
-    let myCode = localStorage.getItem('p2p_code') || Math.floor(1000 + Math.random() * 9000);
-    localStorage.setItem('p2p_code', myCode);
+    function showHost() {
+        isHost = true;
+        localStorage.setItem('p2p_code', code);
+        document.getElementById('view-start').classList.add('hidden');
+        document.getElementById('view-host').classList.remove('hidden');
+        document.getElementById('host-code-display').innerText = code;
 
-    // --- LOGIC HOST ---
-    function initHost() {
-        document.getElementById('setupView').classList.add('hidden');
-        document.getElementById('hostView').classList.remove('hidden');
-        document.getElementById('displayCode').innerText = myCode;
-        const fullLink = window.location.origin + window.location.pathname + '?code=' + myCode;
-        document.getElementById('shareLink').value = fullLink;
-
-        peer = new Peer('watch-' + myCode, { config: iceConfig });
-
-        peer.on('open', () => {
-            updateHostStatus("🟢 Sẵn sàng chờ kết nối...");
-        });
-
+        peer = new Peer('h-' + code, { config });
+        peer.on('open', () => console.log("Host ready"));
         peer.on('connection', (c) => {
             conn = c;
-            updateHostStatus("🟡 Mẹ đã vào phòng, đang chờ chia sẻ...");
-            handleData();
+            updateHostUI('conn', 'Đã vào ✅', true);
+            setupDataListener();
+            // Nếu đã đang chia sẻ thì gọi ngay cho mẹ
+            if (mixedStream) makeCall();
         });
 
-        peer.on('call', (call) => {
-            call.answer(); // Trả lời cuộc gọi từ viewer (nếu viewer gửi cam)
-            call.on('stream', (remoteStream) => {
-                // Có thể hiện video của mẹ ở một góc nhỏ nếu muốn
-            });
-        });
+        const link = window.location.origin + window.location.pathname + '?code=' + code;
+        document.getElementById('copy-link').onclick = () => {
+            navigator.clipboard.writeText(link);
+            alert("Đã copy link! Gửi qua Messenger cho mẹ nhé.");
+        };
     }
 
-    async function startSharing() {
-        try {
-            // 1. Lấy màn hình + âm thanh hệ thống
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    displaySurface: 'monitor',
-                    width: { ideal: 1920 }, height: { ideal: 1080 },
-                    frameRate: { ideal: 30 }
-                },
-                audio: {
-                    systemAudio: 'include',
-                    echoCancellation: false, noiseSuppression: false, autoGainControl: false
-                }
-            });
+    function showViewer() {
+        isHost = false;
+        document.getElementById('view-start').classList.add('hidden');
+        document.getElementById('view-viewer').classList.remove('hidden');
 
-            // 2. Lấy Mic của Host
-            try {
-                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                micStream.getAudioTracks()[0].enabled = false; // Mặc định tắt mic con
-            } catch(e) { console.log("Không có mic"); }
-
-            // 3. Mix âm thanh hệ thống và mic thành 1 track duy nhất để tránh lệch sync
-            const audioCtx = new AudioContext();
-            const dest = audioCtx.createMediaStreamDestination();
-
-            if (screenStream.getAudioTracks().length > 0) {
-                audioCtx.createMediaStreamSource(new MediaStream([screenStream.getAudioTracks()[0]])).connect(dest);
-            } else {
-                alert("CẢNH BÁO: Bạn chưa chọn 'Chia sẻ âm thanh hệ thống'. Mẹ sẽ không nghe thấy tiếng trận đấu!");
-            }
-
-            if (micStream) {
-                audioCtx.createMediaStreamSource(micStream).connect(dest);
-            }
-
-            mixedStream = new MediaStream([
-                screenStream.getVideoTracks()[0],
-                dest.stream.getAudioTracks()[0]
-            ]);
-
-            // 4. Gửi stream cho viewer
-            if (conn) {
-                const call = peer.call(conn.peer, mixedStream);
-
-                // Tối ưu Bitrate sau khi kết nối thiết lập (6Mbps)
-                const pc = call.peerConnection;
-                pc.oniceconnectionstatechange = () => {
-                    if (pc.iceConnectionState === 'connected') {
-                        const senders = pc.getSenders();
-                        const videoSender = senders.find(s => s.track.kind === 'video');
-                        if (videoSender) {
-                            const params = videoSender.getParameters();
-                            if (!params.encodings) params.encodings = [{}];
-                            params.encodings[0].maxBitrate = 6000000; // 6 Mbps
-                            videoSender.setParameters(params);
-                        }
-                    }
-                };
-            }
-
-            document.getElementById('btnStart').classList.add('hidden');
-            document.getElementById('hostControls').classList.remove('hidden');
-            updateHostStatus("🔵 ĐANG PHÁT TRỰC TIẾP...");
-
-            screenStream.getVideoTracks()[0].onended = () => location.reload();
-
-        } catch (err) {
-            console.error(err);
-            updateHostStatus("❌ Lỗi: " + err.message);
-        }
-    }
-
-    function toggleHostMic() {
-        if (micStream) {
-            const active = micStream.getAudioTracks()[0].enabled = !micStream.getAudioTracks()[0].enabled;
-            document.getElementById('toggleMic').innerText = active ? "🎙️ Mic của con: BẬT" : "🎙️ Mic của con: TẮT";
-        }
-    }
-
-    let momMuted = false;
-    function remoteMuteMom() {
-        momMuted = !momMuted;
-        conn.send({ type: 'mute', value: momMuted });
-        document.getElementById('toggleMomMic').innerText = momMuted ? "🔊 Bật Mic của mẹ" : "🔇 Tắt Mic của mẹ (từ xa)";
-    }
-
-    function handleData() {
-        conn.on('data', (data) => {
-            if (data.type === 'status') {
-                updateHostStatus(`📱 Mẹ: ${data.msg}`);
-            }
-        });
-    }
-
-    function updateHostStatus(msg) {
-        document.getElementById('hostStatus').innerText = msg;
-    }
-
-    // --- LOGIC VIEWER ---
-    function initViewer() {
-        document.getElementById('setupView').classList.add('hidden');
-        document.getElementById('viewerInputView').classList.remove('hidden');
-    }
-
-    function connectToHost() {
-        const code = document.getElementById('inputCode').value;
-        if (!code) return;
-
-        peer = new Peer({ config: iceConfig });
-
+        peer = new Peer({ config });
         peer.on('open', () => {
-            conn = peer.connect('watch-' + code);
-            setupViewerConn();
+            conn = peer.connect('h-' + code);
+            conn.on('open', () => {
+                document.getElementById('v-msg').innerText = "Đã thấy tín hiệu của con. Đang chờ hình ảnh...";
+                sendToHost({ type: 'status', key: 'conn', val: 'Đã vào ✅' });
+            });
         });
 
         peer.on('call', async (call) => {
-            // Xin quyền mic để mẹ nói chuyện được với con
+            // Tự động trả lời, có thể xin quyền mic để con nghe thấy mẹ
+            let momMic;
             try {
-                momStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            } catch(e) {}
+                momMic = await navigator.mediaDevices.getUserMedia({ audio: true });
+                sendToHost({ type: 'status', key: 'perm', val: 'Đã cho phép ✅' });
+            } catch(e) {
+                sendToHost({ type: 'status', key: 'perm', val: 'Từ chối ❌' });
+            }
 
-            call.answer(momStream);
+            call.answer(momMic);
+            call.on('stream', (stream) => {
+                const v = document.getElementById('main-video');
+                v.srcObject = stream;
 
-            call.on('stream', (remoteStream) => {
-                const video = document.getElementById('remoteVideo');
-                video.srcObject = remoteStream;
-
-                // Cài đặt Playout Delay (Buffer) để chống lag và giữ Sync A/V
+                // Set buffer 5s để mượt (cực kỳ quan trọng)
                 const pc = call.peerConnection;
-                pc.getReceivers().forEach(receiver => {
-                    if (receiver.track && 'playoutDelayHint' in receiver) {
-                        receiver.playoutDelayHint = 5.0; // Buffer 5 giây
-                    }
-                });
+                pc.getReceivers().forEach(r => { if(r.track && 'playoutDelayHint' in r) r.playoutDelayHint = 5.0; });
 
-                document.getElementById('playOverlay').classList.remove('hidden');
+                document.getElementById('overlay-play').classList.remove('hidden');
             });
         });
     }
 
-    function startWatching() {
-        const video = document.getElementById('remoteVideo');
-        video.play();
-        document.getElementById('playOverlay').classList.add('hidden');
-        document.getElementById('viewerInputView').classList.add('hidden');
-        document.getElementById('videoContainer').classList.remove('hidden');
+    // --- LOGIC CỦA CON (HOST) ---
+    async function startHostSharing() {
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { width: 1920, height: 1080, frameRate: 30 },
+                audio: { systemAudio: 'include', echoCancellation: false }
+            });
 
-        // Tự động xoay nếu màn hình dọc
-        checkOrientation();
-        window.addEventListener('resize', checkOrientation);
+            // Mix mic con vào
+            const ctx = new AudioContext();
+            const dest = ctx.createMediaStreamDestination();
+            if (screenStream.getAudioTracks()[0]) ctx.createMediaStreamSource(new MediaStream([screenStream.getAudioTracks()[0]])).connect(dest);
 
-        // Thử vào fullscreen
-        if (video.requestFullscreen) video.requestFullscreen();
-        else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStream.getAudioTracks()[0].enabled = false;
+                ctx.createMediaStreamSource(micStream).connect(dest);
+            } catch(e) {}
 
-        conn.send({ type: 'status', msg: 'Đang xem ngon lành ✅' });
+            mixedStream = new MediaStream([screenStream.getVideoTracks()[0], dest.stream.getAudioTracks()[0]]);
+
+            document.getElementById('btn-start-share').innerText = "🟢 Đang phát...";
+            document.getElementById('btn-start-share').disabled = true;
+            document.getElementById('host-controls').classList.remove('hidden');
+
+            if (conn && conn.open) makeCall();
+
+            screenStream.getVideoTracks()[0].onended = () => location.reload();
+        } catch(e) { alert("Lỗi: " + e.message); }
     }
 
-    function checkOrientation() {
-        const video = document.getElementById('remoteVideo');
-        if (window.innerHeight > window.innerWidth) {
-            video.classList.add('force-landscape');
+    function makeCall() {
+        const call = peer.call(conn.peer, mixedStream);
+        // Tối ưu bitrate 6Mbps
+        const pc = call.peerConnection;
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'connected') {
+                const sender = pc.getSenders().find(s => s.track.kind === 'video');
+                if (sender) {
+                    const p = sender.getParameters();
+                    if (!p.encodings) p.encodings = [{}];
+                    p.encodings[0].maxBitrate = 6000000;
+                    sender.setParameters(p);
+                }
+            }
+        };
+    }
+
+    function toggleMyMic() {
+        if (!micStream) return;
+        const active = micStream.getAudioTracks()[0].enabled = !micStream.getAudioTracks()[0].enabled;
+        document.getElementById('btn-my-mic').innerText = active ? "🎙️ Mic của con: Bật" : "🎙️ Mic của con: Tắt";
+    }
+
+    // --- LOGIC CỦA MẸ (VIEWER) ---
+    function momStartWatching() {
+        const v = document.getElementById('main-video');
+        v.play();
+        document.getElementById('overlay-play').classList.add('hidden');
+        document.getElementById('view-viewer').classList.add('hidden');
+        document.getElementById('video-container').classList.remove('hidden');
+
+        // Tự xoay ngang nếu cần
+        handleOrientation();
+        window.addEventListener('resize', handleOrientation);
+
+        if (v.requestFullscreen) v.requestFullscreen();
+        else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+
+        sendToHost({ type: 'status', key: 'play', val: 'Đang xem ✅' });
+    }
+
+    function handleOrientation() {
+        const v = document.getElementById('main-video');
+        const isPortrait = window.innerHeight > window.innerWidth;
+        if (isPortrait) {
+            v.classList.add('force-landscape');
+            sendToHost({ type: 'status', key: 'orient', val: 'Đang dọc (Đã tự xoay) 🔄' });
         } else {
-            video.classList.remove('force-landscape');
+            v.classList.remove('force-landscape');
+            sendToHost({ type: 'status', key: 'orient', val: 'Ngang chuẩn ✅' });
         }
     }
 
-    function setupViewerConn() {
-        conn.on('open', () => {
-            document.getElementById('viewerStatus').innerText = "Đã kết nối! Chờ con bắt đầu phát...";
-            conn.send({ type: 'status', msg: 'Mẹ đã vào phòng' });
-        });
+    // --- GIAO TIẾP DỮ LIỆU ---
+    function sendToHost(data) { if (conn && conn.open) conn.send(data); }
+
+    function setupDataListener() {
         conn.on('data', (data) => {
-            if (data.type === 'mute' && momStream) {
-                momStream.getAudioTracks()[0].enabled = !data.value;
+            if (data.type === 'status') {
+                updateHostUI(data.key, data.val, data.val.includes('✅'));
             }
         });
     }
 
-    function copyLink() {
-        const copyText = document.getElementById("shareLink");
-        copyText.select();
-        copyText.setSelectionRange(0, 99999);
-        navigator.clipboard.writeText(copyText.value);
-        alert("Đã copy link! Gửi cho mẹ qua Messenger nhé.");
-    }
-
-    // Tự động nhận diện code từ URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const autoCode = urlParams.get('code');
-    if (autoCode) {
-        initViewer();
-        document.getElementById('inputCode').value = autoCode;
-        setTimeout(connectToHost, 1000);
+    function updateHostUI(key, val, isOk) {
+        const el = document.getElementById('s-' + key);
+        if (el) {
+            el.innerText = val;
+            if (isOk) el.classList.add('check-ok');
+        }
     }
 </script>
 </body>
