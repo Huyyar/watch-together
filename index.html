@@ -1,341 +1,371 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Xem cùng (P2P)</title>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<style>
-:root{
-  --bg:#0f1115; --card:#171a21; --text:#eef1f6; --muted:#9aa3b2;
-  --accent:#4f8cff; --accent2:#22c55e; --danger:#ef4444; --border:#262b36;
-  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: light){
-  :root:not([data-theme="dark"]){--bg:#f5f6f8;--card:#ffffff;--text:#14161a;--muted:#5b6270;--border:#e3e6ec;}
-}
-:root[data-theme="light"]{--bg:#f5f6f8;--card:#ffffff;--text:#14161a;--muted:#5b6270;--border:#e3e6ec;}
-*{box-sizing:border-box;}
-html,body{height:100%;}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;
-  display:flex;flex-direction:column;align-items:center;padding:24px 16px;}
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:440px;width:100%;}
-h1{font-size:1.15rem;margin:0 0 6px;}
-p.sub{color:var(--muted);font-size:0.85rem;margin:0 0 20px;}
-button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:14px 18px;width:100%;font-weight:600;font-size:0.95rem;}
-.btn-primary{background:var(--accent);color:#fff;}
-.btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border);margin-top:10px;}
-.choice{display:flex;flex-direction:column;gap:12px;}
-.choice button{padding:20px;text-align:left;background:var(--card);border:2px solid var(--border);color:var(--text);}
-.choice button:hover{border-color:var(--accent);}
-.hidden{display:none !important;}
-.code{font-size:2.2rem;font-weight:800;letter-spacing:4px;text-align:center;background:var(--bg);
-  border:1px dashed var(--border);border-radius:12px;padding:14px;margin:14px 0;}
-input{width:100%;font-size:1.4rem;text-align:center;letter-spacing:3px;padding:12px;border-radius:10px;
-  border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:12px;}
-.status{font-size:0.85rem;color:var(--muted);margin-top:12px;min-height:18px;text-align:center;}
-video{width:100%;border-radius:12px;background:#000;margin-top:14px;display:block;}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);color:#fff;display:flex;align-items:center;
-  justify-content:center;flex-direction:column;gap:16px;z-index:10;text-align:center;padding:20px;}
-.overlay button{width:auto;padding:18px 28px;font-size:1.1rem;}
-.linkbox{display:flex;gap:8px;margin-top:10px;}
-.linkbox input{flex:1;font-size:0.8rem;letter-spacing:0;text-align:left;margin:0;}
-.linkbox button{width:auto;padding:12px 14px;}
-.small{font-size:0.75rem;color:var(--muted);margin-top:16px;line-height:1.5;}
-#viewerView.connected{padding:0;border:none;background:transparent;box-shadow:none;max-width:100%;}
-#viewerView.connected video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;
-  margin:0;border-radius:0;z-index:5;background:#000;transform:none;top:auto;left:auto;}
-#viewerView.connected.force-landscape video{
-  inset:auto;top:50%;left:50%;width:100vh;height:100vw;
-  transform:translate(-50%,-50%) rotate(90deg);
-}
-body.viewer-fullscreen{padding:0;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Xem Bóng Đá Cùng Mẹ (P2P)</title>
+    <!-- Thư viện PeerJS để kết nối trực tiếp -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+            --accent: #3b82f6; --accent-hover: #2563eb; --border: #334155;
+            padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+        }
+        @media (prefers-color-scheme: light) {
+            :root { --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            display: flex; flex-direction: column; align-items: center; padding: 20px;
+        }
+        .card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+            padding: 24px; max-width: 450px; width: 100%; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 1.25rem; margin: 0 0 8px; font-weight: 700; }
+        p.sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.4; }
+
+        .btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; border: none; font-size: 1rem;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:active { background: var(--accent-hover); transform: scale(0.98); }
+        .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); margin-top: 10px; }
+
+        .hidden { display: none !important; }
+        .code-box {
+            font-size: 2.5rem; font-weight: 800; text-align: center; letter-spacing: 5px;
+            background: var(--bg); border: 2px dashed var(--border); border-radius: 15px;
+            padding: 15px; margin: 15px 0; color: var(--accent);
+        }
+        .link-area { display: flex; gap: 8px; margin-bottom: 15px; }
+        input {
+            flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--text); font-size: 0.9rem;
+        }
+
+        /* Giao diện Video Viewer */
+        #videoContainer {
+            position: fixed; inset: 0; background: #000; z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        video { width: 100%; height: 100%; object-fit: contain; }
+
+        /* Ép xoay màn hình bằng CSS cho Viewer trên mobile */
+        .force-landscape {
+            transform: rotate(90deg);
+            width: 100vh !important; height: 100vw !important;
+        }
+
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 2000; text-align: center; color: white; padding: 20px;
+        }
+
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background: #22c55e; }
+        .offline { background: #ef4444; }
+
+        .small-info { font-size: 0.75rem; color: var(--muted); margin-top: 15px; line-height: 1.4; }
+    </style>
 </head>
 <body>
 
-<div id="chooser" class="card choice">
-  <h1>Xem cùng qua kết nối trực tiếp (P2P)</h1>
-  <p class="sub">Video đi thẳng máy này → máy kia, không lưu qua server nào. Chọn vai trò của bạn:</p>
-  <button id="pickHost">🖥️ Mình chia sẻ màn hình (người quay)</button>
-  <button id="pickViewer">📱 Mình xem (bấm cái này nếu bạn nhận link)</button>
+<!-- CHỌN VAI TRÒ -->
+<div id="setupView" class="card">
+    <h1>Xem cùng trực tiếp (P2P)</h1>
+    <p class="sub">Kết nối trực tiếp giữa hai máy, không qua server trung gian. Mượt hơn, nét hơn.</p>
+    <button class="btn btn-primary" onclick="initHost()">🖥️ Mình là người phát (Host)</button>
+    <button class="btn btn-secondary" onclick="initViewer()">📱 Mình là người xem (Viewer)</button>
+    <p class="small-info">Nên dùng Chrome trên Laptop và Safari/Chrome trên điện thoại.</p>
 </div>
 
+<!-- GIAO DIỆN HOST -->
 <div id="hostView" class="card hidden">
-  <h1>Chia sẻ màn hình</h1>
-  <p class="sub">Mã phòng của bạn — đọc hoặc gửi link này cho người xem:</p>
-  <div class="code" id="hostCode">----</div>
-  <div class="linkbox">
-    <input id="hostLink" readonly>
-    <button class="btn-secondary" id="copyLink" style="margin:0;">Copy</button>
-  </div>
-  <button class="btn-primary" id="startShare" style="margin-top:16px;">Bắt đầu chia sẻ màn hình</button>
-  <p class="small" style="margin-top:8px;">⚠️ Trong hộp thoại Windows hiện ra: chọn tab <b>"Toàn màn hình"</b>, chọn đúng màn hình đang phát trận đấu, rồi tick vào ô <b>"Chia sẻ âm thanh hệ thống"</b> ở góc dưới trái trước khi bấm Chia sẻ.</p>
-  <div class="status" id="hostStatus">Chưa chia sẻ</div>
-  <button id="hostMicToggle" class="btn-secondary hidden">🎙️ Mic của mình: Bật</button>
-  <button id="momMicToggle" class="btn-secondary hidden">🎙️ Mic của mẹ: Bật</button>
-  <div class="status" id="momStateBox" style="text-align:left;margin-top:10px;"></div>
-  <video id="hostRemoteVideo" autoplay playsinline class="hidden" style="max-width:220px;margin-top:10px;"></video>
-  <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật để xem/nghe mẹ</button>
+    <h1>Chia sẻ màn hình</h1>
+    <p class="sub">Gửi mã hoặc link này cho mẹ để mẹ vào xem:</p>
+    <div class="code-box" id="displayCode">----</div>
+    <div class="link-area">
+        <input id="shareLink" readonly>
+        <button class="btn btn-primary" style="width: auto;" onclick="copyLink()">Copy</button>
+    </div>
+    <button id="btnStart" class="btn btn-primary" onclick="startSharing()">🚀 Bắt đầu chia sẻ</button>
+
+    <div id="hostStatus" class="small-info" style="margin-top: 15px; padding: 10px; background: var(--bg); border-radius: 10px;">
+        Chưa bắt đầu
+    </div>
+
+    <div id="hostControls" class="hidden">
+        <button id="toggleMic" class="btn btn-secondary" onclick="toggleHostMic()">🎙️ Mic của con: TẮT</button>
+        <button id="toggleMomMic" class="btn btn-secondary" onclick="remoteMuteMom()">🔇 Tắt Mic của mẹ (từ xa)</button>
+    </div>
 </div>
 
-<div id="viewerView" class="card hidden">
-  <div id="viewerHeader">
-    <h1>Xem trực tiếp</h1>
-    <p class="sub" id="viewerSub">Nhập mã phòng người kia đọc cho bạn:</p>
-    <input id="codeInput" maxlength="4" placeholder="0000" inputmode="numeric">
-    <button class="btn-primary" id="connectBtn">Kết nối</button>
-    <div class="status" id="viewerStatus"></div>
-  </div>
-  <video id="remoteVideo" playsinline class="hidden"></video>
+<!-- GIAO DIỆN VIEWER NHẬP MÃ -->
+<div id="viewerInputView" class="card hidden">
+    <h1>Kết nối tới phòng</h1>
+    <p class="sub">Nhập mã 4 số được gửi cho bạn:</p>
+    <input id="inputCode" type="number" pattern="\d*" placeholder="Ví dụ: 1234" style="font-size: 1.5rem; text-align: center; margin-bottom: 15px;">
+    <button class="btn btn-primary" onclick="connectToHost()">Kết nối ngay</button>
+    <div id="viewerStatus" class="small-info"></div>
 </div>
 
-<div id="tapOverlay" class="overlay hidden">
-  <div>🔊 Bấm để bắt đầu xem</div>
-  <button class="btn-primary" id="tapPlay">Xem ngay</button>
+<!-- OVERLAY BẤM ĐỂ XEM (Vượt rào cản Autoplay) -->
+<div id="playOverlay" class="overlay hidden">
+    <h2 style="margin-bottom: 10px;">Tín hiệu đã sẵn sàng!</h2>
+    <p style="margin-bottom: 20px; opacity: 0.8;">Bấm nút dưới đây để nghe âm thanh trận đấu</p>
+    <button class="btn btn-primary" style="width: 200px;" onclick="startWatching()">🔊 XEM NGAY</button>
 </div>
 
-<p class="small" id="disclaimerText">Kết nối video là trực tiếp giữa 2 trình duyệt (WebRTC). Chỉ có tín hiệu kết nối ban đầu đi qua một máy chủ trung gian miễn phí để 2 bên tìm thấy nhau — không có ai lưu hay xem lại được nội dung.</p>
+<!-- CONTAINER VIDEO -->
+<div id="videoContainer" class="hidden">
+    <video id="remoteVideo" playsinline webkit-playsinline></video>
+</div>
 
 <script>
-function randCode(){ return String(Math.floor(1000 + Math.random()*9000)); }
-
-// STUN (tìm địa chỉ nhau) + TURN dự phòng miễn phí (relay khi NAT quá khó xuyên qua, hay gặp ở mạng 4G)
-const peerConfig = { config: { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-] } };
-
-const chooser = document.getElementById('chooser');
-const hostView = document.getElementById('hostView');
-const viewerView = document.getElementById('viewerView');
-
-function showHost(){ chooser.classList.add('hidden'); hostView.classList.remove('hidden'); }
-function showViewer(){ chooser.classList.add('hidden'); viewerView.classList.remove('hidden'); }
-
-document.getElementById('pickHost').onclick = showHost;
-document.getElementById('pickViewer').onclick = showViewer;
-
-// ---- HOST ----
-let hostPeer, screenStream, micStream, activeConn, momState = {};
-let code = localStorage.getItem('watchCode');
-if(!code){ code = randCode(); localStorage.setItem('watchCode', code); }
-document.getElementById('hostCode').textContent = code;
-const link = location.origin + location.pathname + '?code=' + code;
-document.getElementById('hostLink').value = link;
-document.getElementById('copyLink').onclick = () => {
-  navigator.clipboard.writeText(link).then(()=>{ document.getElementById('copyLink').textContent='Đã copy!'; });
-};
-
-document.getElementById('startShare').onclick = async () => {
-  const statusEl = document.getElementById('hostStatus');
-  const startBtn = document.getElementById('startShare');
-  startBtn.disabled = true;
-  try{
-    screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: 'monitor', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } },
-      audio: { systemAudio: 'include', echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      surfaceSwitching: 'include',
-      selfBrowserSurface: 'exclude'
-    });
-    if(screenStream.getAudioTracks().length === 0){
-      statusEl.textContent = 'Đang chia sẻ nhưng KHÔNG có tiếng — lần sau nhớ chọn "Toàn màn hình" và tick "Chia sẻ âm thanh hệ thống" trong hộp thoại.';
-    }else{
-      statusEl.textContent = 'Đang chia sẻ — chờ người xem kết nối...';
-    }
-
-    // trộn tiếng hệ thống + mic của mình thành 1 track duy nhất để gửi đi
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const dest = audioCtx.createMediaStreamDestination();
-    if(screenStream.getAudioTracks().length){
-      audioCtx.createMediaStreamSource(new MediaStream(screenStream.getAudioTracks())).connect(dest);
-    }
-    try{
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioCtx.createMediaStreamSource(micStream).connect(dest);
-      micStream.getAudioTracks()[0].enabled = false; // mặc định tắt mic mình
-      const micBtn = document.getElementById('hostMicToggle');
-      micBtn.classList.remove('hidden');
-      micBtn.textContent = '🎙️ Mic của mình: Tắt';
-      micBtn.onclick = () => {
-        const t = micStream.getAudioTracks()[0];
-        t.enabled = !t.enabled;
-        micBtn.textContent = '🎙️ Mic của mình: ' + (t.enabled ? 'Bật' : 'Tắt');
-      };
-    }catch(e){ /* không lấy được mic mình — vẫn gửi được tiếng hệ thống bình thường */ }
-
-    const combinedStream = new MediaStream([...screenStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-
-    if(hostPeer && !hostPeer.destroyed){ hostPeer.destroy(); }
-    hostPeer = new Peer('host-' + code, peerConfig);
-    hostPeer.on('open', () => { statusEl.textContent = 'Sẵn sàng. Đọc mã ' + code + ' cho người xem, hoặc gửi link.'; });
-    hostPeer.on('connection', (conn) => {
-      activeConn = conn;
-      momState = { connected: true };
-      renderMomState();
-      conn.on('data', (data) => {
-        if(data && data.type === 'state'){
-          momState = Object.assign(momState, data);
-          renderMomState();
-        }
-      });
-      conn.on('open', () => {
-        statusEl.textContent = 'Người xem đã kết nối, đang gửi hình...';
-        const momBtn = document.getElementById('momMicToggle');
-        let momMuted = false;
-        momBtn.classList.remove('hidden');
-        momBtn.textContent = '🎙️ Mic của mẹ: Bật';
-        momBtn.onclick = () => {
-          momMuted = !momMuted;
-          conn.send({ type: 'muteMic', muted: momMuted });
-          momBtn.textContent = '🎙️ Mic của mẹ: ' + (momMuted ? 'Tắt' : 'Bật');
-        };
-        const call = hostPeer.call(conn.peer, combinedStream);
-        // đẩy trần bitrate video lên cao để giảm mờ/vỡ hình khi bóng di chuyển nhanh
-        setTimeout(() => {
-          const pc = call.peerConnection;
-          if(pc){
-            pc.getSenders().forEach((sender) => {
-              if(sender.track && sender.track.kind === 'video'){
-                const params = sender.getParameters();
-                if(!params.encodings || !params.encodings.length) params.encodings = [{}];
-                params.encodings[0].maxBitrate = 6000000;
-                sender.setParameters(params).catch(() => {});
-              }
-            });
-          }
-        }, 1500);
-        call.on('stream', (remoteStream) => {
-          const v = document.getElementById('hostRemoteVideo');
-          v.srcObject = remoteStream;
-          v.classList.remove('hidden');
-          v.play().catch(()=>{ document.getElementById('hostEnableAudio').classList.remove('hidden'); });
-        });
-      });
-    });
-    hostPeer.on('error', (e) => { statusEl.textContent = 'Lỗi kết nối: ' + e.type; });
-    screenStream.getVideoTracks()[0].onended = () => {
-      statusEl.textContent = 'Đã dừng chia sẻ. Bấm nút bên dưới để chia sẻ lại — link cũ vẫn dùng được.';
-      if(hostPeer){ hostPeer.destroy(); }
-      startBtn.disabled = false;
-      startBtn.textContent = 'Chia sẻ lại màn hình';
+    // CẤU HÌNH KẾT NỐI (Dùng STUN/TURN để xuyên tường lửa 4G)
+    const iceConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
     };
-  }catch(err){
-    statusEl.textContent = 'Không lấy được màn hình (đã huỷ hoặc trình duyệt không hỗ trợ).';
-    startBtn.disabled = false;
-  }
-};
 
-document.getElementById('hostEnableAudio').onclick = () => {
-  const v = document.getElementById('hostRemoteVideo');
-  v.play();
-  document.getElementById('hostEnableAudio').classList.add('hidden');
-};
+    let peer, conn, screenStream, micStream, mixedStream, momStream;
+    let myCode = localStorage.getItem('p2p_code') || Math.floor(1000 + Math.random() * 9000);
+    localStorage.setItem('p2p_code', myCode);
 
-function renderMomState(){
-  const box = document.getElementById('momStateBox');
-  const lines = [];
-  lines.push('📶 Kết nối: ' + (momState.connected ? 'Đã kết nối' : 'Chưa kết nối'));
-  if('camMic' in momState) lines.push('📷 Cam/Mic của mẹ: ' + (momState.camMic === 'granted' ? 'Đã cho phép ✅' : 'Bị từ chối ❌'));
-  if('playing' in momState) lines.push('▶️ Đã bấm "Xem ngay": ' + (momState.playing ? '✅' : '⏳ chưa bấm'));
-  if('landscape' in momState) lines.push('🔄 Đang tự xoay to màn hình: ' + (momState.landscape ? '✅' : '— (đang vừa khít, không cần xoay)'));
-  box.innerHTML = lines.join('<br>');
-}
+    // --- LOGIC HOST ---
+    function initHost() {
+        document.getElementById('setupView').classList.add('hidden');
+        document.getElementById('hostView').classList.remove('hidden');
+        document.getElementById('displayCode').innerText = myCode;
+        const fullLink = window.location.origin + window.location.pathname + '?code=' + myCode;
+        document.getElementById('shareLink').value = fullLink;
 
-// ---- VIEWER ----
-let viewerPeer, momStream, momMuted = false, viewerConn = null;
-function sendState(obj){
-  if(viewerConn && viewerConn.open){ viewerConn.send(Object.assign({ type: 'state' }, obj)); }
-}
-function connectViewer(roomCode){
-  const statusEl = document.getElementById('viewerStatus');
-  const video = document.getElementById('remoteVideo');
-  statusEl.textContent = 'Đang kết nối...';
-  try{
-    viewerPeer = new Peer(undefined, peerConfig);
-    viewerPeer.on('open', () => {
-      const conn = viewerPeer.connect('host-' + roomCode);
-      viewerConn = conn;
-      conn.on('open', () => { sendState({ connected: true }); });
-      conn.on('error', () => { statusEl.textContent = 'Không tìm thấy phòng ' + roomCode + '. Kiểm tra lại mã.'; });
-      conn.on('data', (data) => {
-        if(data && data.type === 'muteMic'){
-          momMuted = data.muted;
-          if(momStream) momStream.getAudioTracks().forEach(t => { t.enabled = !momMuted; });
-        }
-      });
-    });
-    viewerPeer.on('call', async (call) => {
-      statusEl.textContent = 'Đang xin quyền camera/mic để người thân có thể thấy bạn...';
-      try{
-        momStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        momStream.getAudioTracks().forEach(t => { t.enabled = !momMuted; });
-        sendState({ camMic: 'granted' });
-      }catch(e){ sendState({ camMic: 'denied' }); }
-      call.answer(momStream || undefined);
-      call.on('stream', (remoteStream) => {
-        video.srcObject = remoteStream;
-        video.classList.remove('hidden');
-        statusEl.textContent = 'Đã kết nối!';
-        // thêm bộ đệm ~1 giây để phát mượt hơn, đổi lấy 1 chút trễ
-        const pc = call.peerConnection;
-        if(pc){
-          pc.getReceivers().forEach((receiver) => {
-            if(receiver.track && receiver.track.kind === 'video' && 'playoutDelayHint' in receiver){
-              receiver.playoutDelayHint = 5.0;
+        peer = new Peer('watch-' + myCode, { config: iceConfig });
+
+        peer.on('open', () => {
+            updateHostStatus("🟢 Sẵn sàng chờ kết nối...");
+        });
+
+        peer.on('connection', (c) => {
+            conn = c;
+            updateHostStatus("🟡 Mẹ đã vào phòng, đang chờ chia sẻ...");
+            handleData();
+        });
+
+        peer.on('call', (call) => {
+            call.answer(); // Trả lời cuộc gọi từ viewer (nếu viewer gửi cam)
+            call.on('stream', (remoteStream) => {
+                // Có thể hiện video của mẹ ở một góc nhỏ nếu muốn
+            });
+        });
+    }
+
+    async function startSharing() {
+        try {
+            // 1. Lấy màn hình + âm thanh hệ thống
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    displaySurface: 'monitor',
+                    width: { ideal: 1920 }, height: { ideal: 1080 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: {
+                    systemAudio: 'include',
+                    echoCancellation: false, noiseSuppression: false, autoGainControl: false
+                }
+            });
+
+            // 2. Lấy Mic của Host
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStream.getAudioTracks()[0].enabled = false; // Mặc định tắt mic con
+            } catch(e) { console.log("Không có mic"); }
+
+            // 3. Mix âm thanh hệ thống và mic thành 1 track duy nhất để tránh lệch sync
+            const audioCtx = new AudioContext();
+            const dest = audioCtx.createMediaStreamDestination();
+
+            if (screenStream.getAudioTracks().length > 0) {
+                audioCtx.createMediaStreamSource(new MediaStream([screenStream.getAudioTracks()[0]])).connect(dest);
+            } else {
+                alert("CẢNH BÁO: Bạn chưa chọn 'Chia sẻ âm thanh hệ thống'. Mẹ sẽ không nghe thấy tiếng trận đấu!");
             }
-          });
+
+            if (micStream) {
+                audioCtx.createMediaStreamSource(micStream).connect(dest);
+            }
+
+            mixedStream = new MediaStream([
+                screenStream.getVideoTracks()[0],
+                dest.stream.getAudioTracks()[0]
+            ]);
+
+            // 4. Gửi stream cho viewer
+            if (conn) {
+                const call = peer.call(conn.peer, mixedStream);
+
+                // Tối ưu Bitrate sau khi kết nối thiết lập (6Mbps)
+                const pc = call.peerConnection;
+                pc.oniceconnectionstatechange = () => {
+                    if (pc.iceConnectionState === 'connected') {
+                        const senders = pc.getSenders();
+                        const videoSender = senders.find(s => s.track.kind === 'video');
+                        if (videoSender) {
+                            const params = videoSender.getParameters();
+                            if (!params.encodings) params.encodings = [{}];
+                            params.encodings[0].maxBitrate = 6000000; // 6 Mbps
+                            videoSender.setParameters(params);
+                        }
+                    }
+                };
+            }
+
+            document.getElementById('btnStart').classList.add('hidden');
+            document.getElementById('hostControls').classList.remove('hidden');
+            updateHostStatus("🔵 ĐANG PHÁT TRỰC TIẾP...");
+
+            screenStream.getVideoTracks()[0].onended = () => location.reload();
+
+        } catch (err) {
+            console.error(err);
+            updateHostStatus("❌ Lỗi: " + err.message);
         }
-        const overlay = document.getElementById('tapOverlay');
-        overlay.classList.remove('hidden');
-        document.getElementById('tapPlay').onclick = () => {
-          video.muted = false;
-          video.play();
-          overlay.classList.add('hidden');
-          document.getElementById('viewerHeader').classList.add('hidden');
-          document.getElementById('viewerView').classList.add('connected');
-          document.getElementById('disclaimerText').classList.add('hidden');
-          document.body.classList.add('viewer-fullscreen');
-          if(video.requestFullscreen){ video.requestFullscreen().catch(()=>{}); }
-          else if(video.webkitEnterFullscreen){ try{ video.webkitEnterFullscreen(); }catch(e){} }
-          if(screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); }
-          sendState({ playing: true });
-          checkOrientation();
-        };
-      });
-    });
-    viewerPeer.on('error', (e) => { statusEl.textContent = 'Lỗi: ' + e.type; });
-  }catch(err){
-    statusEl.textContent = 'Trình duyệt không hỗ trợ. Thử Chrome hoặc Safari mới nhất.';
-  }
-}
+    }
 
-document.getElementById('connectBtn').onclick = () => {
-  const v = document.getElementById('codeInput').value.trim();
-  if(v.length === 4) connectViewer(v);
-};
+    function toggleHostMic() {
+        if (micStream) {
+            const active = micStream.getAudioTracks()[0].enabled = !micStream.getAudioTracks()[0].enabled;
+            document.getElementById('toggleMic').innerText = active ? "🎙️ Mic của con: BẬT" : "🎙️ Mic của con: TẮT";
+        }
+    }
 
-function checkOrientation(){
-  const vv = document.getElementById('viewerView');
-  if(!vv.classList.contains('connected')) return;
-  if(window.innerHeight > window.innerWidth){ vv.classList.add('force-landscape'); }
-  else{ vv.classList.remove('force-landscape'); }
-  sendState({ landscape: vv.classList.contains('force-landscape') });
-}
-window.addEventListener('resize', checkOrientation);
-window.addEventListener('orientationchange', checkOrientation);
+    let momMuted = false;
+    function remoteMuteMom() {
+        momMuted = !momMuted;
+        conn.send({ type: 'mute', value: momMuted });
+        document.getElementById('toggleMomMic').innerText = momMuted ? "🔊 Bật Mic của mẹ" : "🔇 Tắt Mic của mẹ (từ xa)";
+    }
 
-// auto-connect if link has ?code=XXXX
-const params = new URLSearchParams(location.search);
-const urlCode = params.get('code');
-if(urlCode){
-  showViewer();
-  document.getElementById('codeInput').value = urlCode;
-  document.getElementById('viewerSub').textContent = 'Mã phòng: ' + urlCode + ' — đang kết nối tự động...';
-  connectViewer(urlCode);
-}
+    function handleData() {
+        conn.on('data', (data) => {
+            if (data.type === 'status') {
+                updateHostStatus(`📱 Mẹ: ${data.msg}`);
+            }
+        });
+    }
+
+    function updateHostStatus(msg) {
+        document.getElementById('hostStatus').innerText = msg;
+    }
+
+    // --- LOGIC VIEWER ---
+    function initViewer() {
+        document.getElementById('setupView').classList.add('hidden');
+        document.getElementById('viewerInputView').classList.remove('hidden');
+    }
+
+    function connectToHost() {
+        const code = document.getElementById('inputCode').value;
+        if (!code) return;
+
+        peer = new Peer({ config: iceConfig });
+
+        peer.on('open', () => {
+            conn = peer.connect('watch-' + code);
+            setupViewerConn();
+        });
+
+        peer.on('call', async (call) => {
+            // Xin quyền mic để mẹ nói chuyện được với con
+            try {
+                momStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch(e) {}
+
+            call.answer(momStream);
+
+            call.on('stream', (remoteStream) => {
+                const video = document.getElementById('remoteVideo');
+                video.srcObject = remoteStream;
+
+                // Cài đặt Playout Delay (Buffer) để chống lag và giữ Sync A/V
+                const pc = call.peerConnection;
+                pc.getReceivers().forEach(receiver => {
+                    if (receiver.track && 'playoutDelayHint' in receiver) {
+                        receiver.playoutDelayHint = 5.0; // Buffer 5 giây
+                    }
+                });
+
+                document.getElementById('playOverlay').classList.remove('hidden');
+            });
+        });
+    }
+
+    function startWatching() {
+        const video = document.getElementById('remoteVideo');
+        video.play();
+        document.getElementById('playOverlay').classList.add('hidden');
+        document.getElementById('viewerInputView').classList.add('hidden');
+        document.getElementById('videoContainer').classList.remove('hidden');
+
+        // Tự động xoay nếu màn hình dọc
+        checkOrientation();
+        window.addEventListener('resize', checkOrientation);
+
+        // Thử vào fullscreen
+        if (video.requestFullscreen) video.requestFullscreen();
+        else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+
+        conn.send({ type: 'status', msg: 'Đang xem ngon lành ✅' });
+    }
+
+    function checkOrientation() {
+        const video = document.getElementById('remoteVideo');
+        if (window.innerHeight > window.innerWidth) {
+            video.classList.add('force-landscape');
+        } else {
+            video.classList.remove('force-landscape');
+        }
+    }
+
+    function setupViewerConn() {
+        conn.on('open', () => {
+            document.getElementById('viewerStatus').innerText = "Đã kết nối! Chờ con bắt đầu phát...";
+            conn.send({ type: 'status', msg: 'Mẹ đã vào phòng' });
+        });
+        conn.on('data', (data) => {
+            if (data.type === 'mute' && momStream) {
+                momStream.getAudioTracks()[0].enabled = !data.value;
+            }
+        });
+    }
+
+    function copyLink() {
+        const copyText = document.getElementById("shareLink");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        alert("Đã copy link! Gửi cho mẹ qua Messenger nhé.");
+    }
+
+    // Tự động nhận diện code từ URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoCode = urlParams.get('code');
+    if (autoCode) {
+        initViewer();
+        document.getElementById('inputCode').value = autoCode;
+        setTimeout(connectToHost, 1000);
+    }
 </script>
 </body>
 </html>
