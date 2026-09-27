@@ -72,7 +72,6 @@ body.viewer-fullscreen{padding:0;}
   <button class="btn-primary" id="startShare" style="margin-top:16px;">Bắt đầu chia sẻ màn hình</button>
   <p class="small" style="margin-top:8px;">⚠️ Trong hộp thoại Windows hiện ra: chọn tab <b>"Toàn màn hình"</b>, chọn đúng màn hình đang phát trận đấu, rồi tick vào ô <b>"Chia sẻ âm thanh hệ thống"</b> ở góc dưới trái trước khi bấm Chia sẻ.</p>
   <div class="status" id="hostStatus">Chưa chia sẻ</div>
-  <div class="small" id="hostNetStat"></div>
   <button id="hostMicToggle" class="btn-secondary hidden">🎙️ Mic của mình: Bật</button>
   <button id="momMicToggle" class="btn-secondary hidden">🎙️ Mic của mẹ: Bật</button>
   <div class="status" id="momStateBox" style="text-align:left;margin-top:10px;"></div>
@@ -87,7 +86,6 @@ body.viewer-fullscreen{padding:0;}
     <input id="codeInput" maxlength="4" placeholder="0000" inputmode="numeric">
     <button class="btn-primary" id="connectBtn">Kết nối</button>
     <div class="status" id="viewerStatus"></div>
-    <div class="small" id="viewerNetStat"></div>
   </div>
   <video id="remoteVideo" playsinline class="hidden"></video>
 </div>
@@ -101,38 +99,6 @@ body.viewer-fullscreen{padding:0;}
 
 <script>
 function randCode(){ return String(Math.floor(1000 + Math.random()*9000)); }
-
-// đo tình trạng kết nối thật (loại đường truyền, bitrate thực tế, fps, mất gói)
-// để biết nghẽn nằm ở đâu: nếu "candidateType" chứa "relay" nghĩa là đang qua TURN free -> dễ bị giới hạn băng thông
-function monitorConnection(getPc, displayEl){
-  let prevBytes = 0, prevTime = 0;
-  const timer = setInterval(async () => {
-    const pc = getPc();
-    if(!pc || pc.connectionState === 'closed'){ clearInterval(timer); return; }
-    try{
-      const stats = await pc.getStats();
-      let candidateType = '-', bitrateKbps = null, fps = '-', packetsLost = '-';
-      stats.forEach(report => {
-        if(report.type === 'candidate-pair' && report.state === 'succeeded' && (report.nominated || report.selected)){
-          const remote = stats.get(report.remoteCandidateId);
-          const local = stats.get(report.localCandidateId);
-          candidateType = (local ? local.candidateType : '?') + '/' + (remote ? remote.candidateType : '?');
-        }
-        if((report.type === 'outbound-rtp' || report.type === 'inbound-rtp') && report.kind === 'video'){
-          const bytes = report.bytesSent ?? report.bytesReceived ?? 0;
-          const now = report.timestamp;
-          if(prevTime){ bitrateKbps = Math.max(0, Math.round(8*(bytes - prevBytes)/(now - prevTime))); }
-          prevBytes = bytes; prevTime = now;
-          fps = report.framesPerSecond ?? '-';
-          if('packetsLost' in report) packetsLost = report.packetsLost;
-        }
-      });
-      const relayWarning = candidateType.includes('relay') ? ' ⚠️ đang qua TURN relay — dễ bị giới hạn băng thông' : '';
-      displayEl.textContent = `📡 Đường truyền: ${candidateType}${relayWarning} | ~${bitrateKbps ?? '...'} kbps | ${fps} fps | mất gói: ${packetsLost}`;
-    }catch(e){}
-  }, 3000);
-  return timer;
-}
 
 // STUN (tìm địa chỉ nhau) + TURN dự phòng miễn phí (relay khi NAT quá khó xuyên qua, hay gặp ở mạng 4G)
 const peerConfig = { config: { iceServers: [
@@ -226,10 +192,8 @@ document.getElementById('startShare').onclick = async () => {
           conn.send({ type: 'muteMic', muted: momMuted });
           momBtn.textContent = '🎙️ Mic của mẹ: ' + (momMuted ? 'Tắt' : 'Bật');
         };
-        screenStream.getVideoTracks()[0].contentHint = 'motion'; // báo cho encoder ưu tiên tốc độ khung hình (bóng đá chuyển động nhanh)
         const call = hostPeer.call(conn.peer, combinedStream);
-        // hạ trần bitrate xuống mức mạng 4G thường chịu được + ưu tiên giữ khung hình mượt thay vì độ nét,
-        // vì 6Mbps thường VƯỢT QUÁ băng thông thực tế -> nghẽn -> vừa giật vừa mờ
+        // đẩy trần bitrate video lên cao để giảm mờ/vỡ hình khi bóng di chuyển nhanh
         setTimeout(() => {
           const pc = call.peerConnection;
           if(pc){
@@ -237,14 +201,12 @@ document.getElementById('startShare').onclick = async () => {
               if(sender.track && sender.track.kind === 'video'){
                 const params = sender.getParameters();
                 if(!params.encodings || !params.encodings.length) params.encodings = [{}];
-                params.encodings[0].maxBitrate = 4000000;
-                params.degradationPreference = 'maintain-framerate';
+                params.encodings[0].maxBitrate = 6000000;
                 sender.setParameters(params).catch(() => {});
               }
             });
           }
         }, 1500);
-        monitorConnection(() => call.peerConnection, document.getElementById('hostNetStat'));
         call.on('stream', (remoteStream) => {
           const v = document.getElementById('hostRemoteVideo');
           v.srcObject = remoteStream;
@@ -317,13 +279,12 @@ function connectViewer(roomCode){
         video.srcObject = remoteStream;
         video.classList.remove('hidden');
         statusEl.textContent = 'Đã kết nối!';
-        monitorConnection(() => call.peerConnection, document.getElementById('viewerNetStat'));
-        // thêm bộ đệm ~8 giây để phát mượt hơn, đổi lấy độ trễ cao hơn
+        // thêm bộ đệm ~1 giây để phát mượt hơn, đổi lấy 1 chút trễ
         const pc = call.peerConnection;
         if(pc){
           pc.getReceivers().forEach((receiver) => {
             if(receiver.track && receiver.track.kind === 'video' && 'playoutDelayHint' in receiver){
-              receiver.playoutDelayHint = 8.0;
+              receiver.playoutDelayHint = 5.0;
             }
           });
         }
