@@ -68,8 +68,8 @@ body.viewer-fullscreen{padding:0;}
   <button class="btn-primary" id="startShare" style="margin-top:16px;">Bắt đầu chia sẻ màn hình</button>
   <p class="small" style="margin-top:8px;">⚠️ Trong hộp thoại Windows hiện ra: chọn tab <b>"Toàn màn hình"</b>, chọn đúng màn hình đang phát trận đấu, rồi tick vào ô <b>"Chia sẻ âm thanh hệ thống"</b> ở góc dưới trái trước khi bấm Chia sẻ.</p>
   <div class="status" id="hostStatus">Chưa chia sẻ</div>
-  <audio id="hostRemoteAudio" autoplay class="hidden"></audio>
-  <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật loa để nghe người xem nói</button>
+  <video id="hostRemoteVideo" autoplay playsinline class="hidden" style="max-width:220px;margin-top:10px;"></video>
+  <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật để xem/nghe mẹ</button>
 </div>
 
 <div id="viewerView" class="card hidden">
@@ -86,6 +86,11 @@ body.viewer-fullscreen{padding:0;}
 <div id="tapOverlay" class="overlay hidden">
   <div>🔊 Bấm để bắt đầu xem</div>
   <button class="btn-primary" id="tapPlay">Xem ngay</button>
+</div>
+
+<div id="rotateHint" class="overlay hidden" style="z-index:20;">
+  <div style="font-size:3rem;">📱↻</div>
+  <div>Xoay ngang điện thoại để xem to hơn nhé</div>
 </div>
 
 <p class="small" id="disclaimerText">Kết nối video là trực tiếp giữa 2 trình duyệt (WebRTC). Chỉ có tín hiệu kết nối ban đầu đi qua một máy chủ trung gian miễn phí để 2 bên tìm thấy nhau — không có ai lưu hay xem lại được nội dung.</p>
@@ -105,7 +110,8 @@ document.getElementById('pickViewer').onclick = showViewer;
 
 // ---- HOST ----
 let hostPeer, screenStream;
-const code = randCode();
+let code = localStorage.getItem('watchCode');
+if(!code){ code = randCode(); localStorage.setItem('watchCode', code); }
 document.getElementById('hostCode').textContent = code;
 const link = location.origin + location.pathname + '?code=' + code;
 document.getElementById('hostLink').value = link;
@@ -115,6 +121,8 @@ document.getElementById('copyLink').onclick = () => {
 
 document.getElementById('startShare').onclick = async () => {
   const statusEl = document.getElementById('hostStatus');
+  const startBtn = document.getElementById('startShare');
+  startBtn.disabled = true;
   try{
     screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: { displaySurface: 'monitor' },
@@ -124,21 +132,41 @@ document.getElementById('startShare').onclick = async () => {
     });
     if(screenStream.getAudioTracks().length === 0){
       statusEl.textContent = 'Đang chia sẻ nhưng KHÔNG có tiếng — lần sau nhớ chọn "Toàn màn hình" và tick "Chia sẻ âm thanh hệ thống" trong hộp thoại.';
+    }else{
+      statusEl.textContent = 'Đang chia sẻ — chờ người xem kết nối...';
     }
-    statusEl.textContent = 'Đang chia sẻ — chờ người xem kết nối...';
+    if(hostPeer && !hostPeer.destroyed){ hostPeer.destroy(); }
     hostPeer = new Peer('host-' + code);
     hostPeer.on('open', () => { statusEl.textContent = 'Sẵn sàng. Đọc mã ' + code + ' cho người xem, hoặc gửi link.'; });
     hostPeer.on('connection', (conn) => {
       conn.on('open', () => {
         statusEl.textContent = 'Người xem đã kết nối, đang gửi hình...';
-        hostPeer.call(conn.peer, screenStream);
+        const call = hostPeer.call(conn.peer, screenStream);
+        call.on('stream', (remoteStream) => {
+          const v = document.getElementById('hostRemoteVideo');
+          v.srcObject = remoteStream;
+          v.classList.remove('hidden');
+          v.play().catch(()=>{ document.getElementById('hostEnableAudio').classList.remove('hidden'); });
+        });
       });
     });
     hostPeer.on('error', (e) => { statusEl.textContent = 'Lỗi kết nối: ' + e.type; });
-    screenStream.getVideoTracks()[0].onended = () => { statusEl.textContent = 'Đã dừng chia sẻ.'; };
+    screenStream.getVideoTracks()[0].onended = () => {
+      statusEl.textContent = 'Đã dừng chia sẻ. Bấm nút bên dưới để chia sẻ lại — link cũ vẫn dùng được.';
+      if(hostPeer){ hostPeer.destroy(); }
+      startBtn.disabled = false;
+      startBtn.textContent = 'Chia sẻ lại màn hình';
+    };
   }catch(err){
     statusEl.textContent = 'Không lấy được màn hình (đã huỷ hoặc trình duyệt không hỗ trợ).';
+    startBtn.disabled = false;
   }
+};
+
+document.getElementById('hostEnableAudio').onclick = () => {
+  const v = document.getElementById('hostRemoteVideo');
+  v.play();
+  document.getElementById('hostEnableAudio').classList.add('hidden');
 };
 
 // ---- VIEWER ----
@@ -153,8 +181,13 @@ function connectViewer(roomCode){
       const conn = viewerPeer.connect('host-' + roomCode);
       conn.on('error', () => { statusEl.textContent = 'Không tìm thấy phòng ' + roomCode + '. Kiểm tra lại mã.'; });
     });
-    viewerPeer.on('call', (call) => {
-      call.answer();
+    viewerPeer.on('call', async (call) => {
+      let momStream = null;
+      statusEl.textContent = 'Đang xin quyền camera/mic để người thân có thể thấy bạn...';
+      try{
+        momStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      }catch(e){ /* mẹ từ chối hoặc máy không có cam — vẫn xem bình thường được */ }
+      call.answer(momStream || undefined);
       call.on('stream', (remoteStream) => {
         video.srcObject = remoteStream;
         video.classList.remove('hidden');
@@ -171,6 +204,8 @@ function connectViewer(roomCode){
           document.body.classList.add('viewer-fullscreen');
           if(video.requestFullscreen){ video.requestFullscreen().catch(()=>{}); }
           else if(video.webkitEnterFullscreen){ try{ video.webkitEnterFullscreen(); }catch(e){} }
+          if(screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); }
+          checkOrientation();
         };
       });
     });
@@ -184,6 +219,15 @@ document.getElementById('connectBtn').onclick = () => {
   const v = document.getElementById('codeInput').value.trim();
   if(v.length === 4) connectViewer(v);
 };
+
+function checkOrientation(){
+  const hint = document.getElementById('rotateHint');
+  if(!document.getElementById('viewerView').classList.contains('connected')){ hint.classList.add('hidden'); return; }
+  if(window.innerHeight > window.innerWidth){ hint.classList.remove('hidden'); }
+  else{ hint.classList.add('hidden'); }
+}
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', checkOrientation);
 
 // auto-connect if link has ?code=XXXX
 const params = new URLSearchParams(location.search);
