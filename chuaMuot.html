@@ -74,7 +74,6 @@ body.viewer-fullscreen{padding:0;}
   <div class="status" id="hostStatus">Chưa chia sẻ</div>
   <button id="hostMicToggle" class="btn-secondary hidden">🎙️ Mic của mình: Bật</button>
   <button id="momMicToggle" class="btn-secondary hidden">🎙️ Mic của mẹ: Bật</button>
-  <div class="status" id="momStateBox" style="text-align:left;margin-top:10px;"></div>
   <video id="hostRemoteVideo" autoplay playsinline class="hidden" style="max-width:220px;margin-top:10px;"></video>
   <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật để xem/nghe mẹ</button>
 </div>
@@ -100,14 +99,6 @@ body.viewer-fullscreen{padding:0;}
 <script>
 function randCode(){ return String(Math.floor(1000 + Math.random()*9000)); }
 
-// STUN (tìm địa chỉ nhau) + TURN dự phòng miễn phí (relay khi NAT quá khó xuyên qua, hay gặp ở mạng 4G)
-const peerConfig = { config: { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-] } };
-
 const chooser = document.getElementById('chooser');
 const hostView = document.getElementById('hostView');
 const viewerView = document.getElementById('viewerView');
@@ -119,7 +110,7 @@ document.getElementById('pickHost').onclick = showHost;
 document.getElementById('pickViewer').onclick = showViewer;
 
 // ---- HOST ----
-let hostPeer, screenStream, micStream, activeConn, momState = {};
+let hostPeer, screenStream, micStream, activeConn;
 let code = localStorage.getItem('watchCode');
 if(!code){ code = randCode(); localStorage.setItem('watchCode', code); }
 document.getElementById('hostCode').textContent = code;
@@ -135,7 +126,7 @@ document.getElementById('startShare').onclick = async () => {
   startBtn.disabled = true;
   try{
     screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: 'monitor', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } },
+      video: { displaySurface: 'monitor' },
       audio: { systemAudio: 'include', echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       surfaceSwitching: 'include',
       selfBrowserSurface: 'exclude'
@@ -169,18 +160,10 @@ document.getElementById('startShare').onclick = async () => {
     const combinedStream = new MediaStream([...screenStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
 
     if(hostPeer && !hostPeer.destroyed){ hostPeer.destroy(); }
-    hostPeer = new Peer('host-' + code, peerConfig);
+    hostPeer = new Peer('host-' + code);
     hostPeer.on('open', () => { statusEl.textContent = 'Sẵn sàng. Đọc mã ' + code + ' cho người xem, hoặc gửi link.'; });
     hostPeer.on('connection', (conn) => {
       activeConn = conn;
-      momState = { connected: true };
-      renderMomState();
-      conn.on('data', (data) => {
-        if(data && data.type === 'state'){
-          momState = Object.assign(momState, data);
-          renderMomState();
-        }
-      });
       conn.on('open', () => {
         statusEl.textContent = 'Người xem đã kết nối, đang gửi hình...';
         const momBtn = document.getElementById('momMicToggle');
@@ -193,20 +176,6 @@ document.getElementById('startShare').onclick = async () => {
           momBtn.textContent = '🎙️ Mic của mẹ: ' + (momMuted ? 'Tắt' : 'Bật');
         };
         const call = hostPeer.call(conn.peer, combinedStream);
-        // đẩy trần bitrate video lên cao để giảm mờ/vỡ hình khi bóng di chuyển nhanh
-        setTimeout(() => {
-          const pc = call.peerConnection;
-          if(pc){
-            pc.getSenders().forEach((sender) => {
-              if(sender.track && sender.track.kind === 'video'){
-                const params = sender.getParameters();
-                if(!params.encodings || !params.encodings.length) params.encodings = [{}];
-                params.encodings[0].maxBitrate = 6000000;
-                sender.setParameters(params).catch(() => {});
-              }
-            });
-          }
-        }, 1500);
         call.on('stream', (remoteStream) => {
           const v = document.getElementById('hostRemoteVideo');
           v.srcObject = remoteStream;
@@ -234,31 +203,16 @@ document.getElementById('hostEnableAudio').onclick = () => {
   document.getElementById('hostEnableAudio').classList.add('hidden');
 };
 
-function renderMomState(){
-  const box = document.getElementById('momStateBox');
-  const lines = [];
-  lines.push('📶 Kết nối: ' + (momState.connected ? 'Đã kết nối' : 'Chưa kết nối'));
-  if('camMic' in momState) lines.push('📷 Cam/Mic của mẹ: ' + (momState.camMic === 'granted' ? 'Đã cho phép ✅' : 'Bị từ chối ❌'));
-  if('playing' in momState) lines.push('▶️ Đã bấm "Xem ngay": ' + (momState.playing ? '✅' : '⏳ chưa bấm'));
-  if('landscape' in momState) lines.push('🔄 Đang tự xoay to màn hình: ' + (momState.landscape ? '✅' : '— (đang vừa khít, không cần xoay)'));
-  box.innerHTML = lines.join('<br>');
-}
-
 // ---- VIEWER ----
-let viewerPeer, momStream, momMuted = false, viewerConn = null;
-function sendState(obj){
-  if(viewerConn && viewerConn.open){ viewerConn.send(Object.assign({ type: 'state' }, obj)); }
-}
+let viewerPeer, momStream, momMuted = false;
 function connectViewer(roomCode){
   const statusEl = document.getElementById('viewerStatus');
   const video = document.getElementById('remoteVideo');
   statusEl.textContent = 'Đang kết nối...';
   try{
-    viewerPeer = new Peer(undefined, peerConfig);
+    viewerPeer = new Peer();
     viewerPeer.on('open', () => {
       const conn = viewerPeer.connect('host-' + roomCode);
-      viewerConn = conn;
-      conn.on('open', () => { sendState({ connected: true }); });
       conn.on('error', () => { statusEl.textContent = 'Không tìm thấy phòng ' + roomCode + '. Kiểm tra lại mã.'; });
       conn.on('data', (data) => {
         if(data && data.type === 'muteMic'){
@@ -272,22 +226,12 @@ function connectViewer(roomCode){
       try{
         momStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         momStream.getAudioTracks().forEach(t => { t.enabled = !momMuted; });
-        sendState({ camMic: 'granted' });
-      }catch(e){ sendState({ camMic: 'denied' }); }
+      }catch(e){ /* mẹ từ chối hoặc máy không có cam — vẫn xem bình thường được */ }
       call.answer(momStream || undefined);
       call.on('stream', (remoteStream) => {
         video.srcObject = remoteStream;
         video.classList.remove('hidden');
         statusEl.textContent = 'Đã kết nối!';
-        // thêm bộ đệm ~1 giây để phát mượt hơn, đổi lấy 1 chút trễ
-        const pc = call.peerConnection;
-        if(pc){
-          pc.getReceivers().forEach((receiver) => {
-            if(receiver.track && receiver.track.kind === 'video' && 'playoutDelayHint' in receiver){
-              receiver.playoutDelayHint = 1.0;
-            }
-          });
-        }
         const overlay = document.getElementById('tapOverlay');
         overlay.classList.remove('hidden');
         document.getElementById('tapPlay').onclick = () => {
@@ -301,7 +245,6 @@ function connectViewer(roomCode){
           if(video.requestFullscreen){ video.requestFullscreen().catch(()=>{}); }
           else if(video.webkitEnterFullscreen){ try{ video.webkitEnterFullscreen(); }catch(e){} }
           if(screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); }
-          sendState({ playing: true });
           checkOrientation();
         };
       });
@@ -322,7 +265,6 @@ function checkOrientation(){
   if(!vv.classList.contains('connected')) return;
   if(window.innerHeight > window.innerWidth){ vv.classList.add('force-landscape'); }
   else{ vv.classList.remove('force-landscape'); }
-  sendState({ landscape: vv.classList.contains('force-landscape') });
 }
 window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange', checkOrientation);
