@@ -72,8 +72,6 @@ body.viewer-fullscreen{padding:0;}
   <button class="btn-primary" id="startShare" style="margin-top:16px;">Bắt đầu chia sẻ màn hình</button>
   <p class="small" style="margin-top:8px;">⚠️ Trong hộp thoại Windows hiện ra: chọn tab <b>"Toàn màn hình"</b>, chọn đúng màn hình đang phát trận đấu, rồi tick vào ô <b>"Chia sẻ âm thanh hệ thống"</b> ở góc dưới trái trước khi bấm Chia sẻ.</p>
   <div class="status" id="hostStatus">Chưa chia sẻ</div>
-  <button id="hostMicToggle" class="btn-secondary hidden">🎙️ Mic của mình: Bật</button>
-  <button id="momMicToggle" class="btn-secondary hidden">🎙️ Mic của mẹ: Bật</button>
   <video id="hostRemoteVideo" autoplay playsinline class="hidden" style="max-width:220px;margin-top:10px;"></video>
   <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật để xem/nghe mẹ</button>
 </div>
@@ -110,7 +108,7 @@ document.getElementById('pickHost').onclick = showHost;
 document.getElementById('pickViewer').onclick = showViewer;
 
 // ---- HOST ----
-let hostPeer, screenStream, micStream, activeConn;
+let hostPeer, screenStream;
 let code = localStorage.getItem('watchCode');
 if(!code){ code = randCode(); localStorage.setItem('watchCode', code); }
 document.getElementById('hostCode').textContent = code;
@@ -136,46 +134,13 @@ document.getElementById('startShare').onclick = async () => {
     }else{
       statusEl.textContent = 'Đang chia sẻ — chờ người xem kết nối...';
     }
-
-    // trộn tiếng hệ thống + mic của mình thành 1 track duy nhất để gửi đi
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const dest = audioCtx.createMediaStreamDestination();
-    if(screenStream.getAudioTracks().length){
-      audioCtx.createMediaStreamSource(new MediaStream(screenStream.getAudioTracks())).connect(dest);
-    }
-    try{
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioCtx.createMediaStreamSource(micStream).connect(dest);
-      micStream.getAudioTracks()[0].enabled = false; // mặc định tắt mic mình
-      const micBtn = document.getElementById('hostMicToggle');
-      micBtn.classList.remove('hidden');
-      micBtn.textContent = '🎙️ Mic của mình: Tắt';
-      micBtn.onclick = () => {
-        const t = micStream.getAudioTracks()[0];
-        t.enabled = !t.enabled;
-        micBtn.textContent = '🎙️ Mic của mình: ' + (t.enabled ? 'Bật' : 'Tắt');
-      };
-    }catch(e){ /* không lấy được mic mình — vẫn gửi được tiếng hệ thống bình thường */ }
-
-    const combinedStream = new MediaStream([...screenStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-
     if(hostPeer && !hostPeer.destroyed){ hostPeer.destroy(); }
     hostPeer = new Peer('host-' + code);
     hostPeer.on('open', () => { statusEl.textContent = 'Sẵn sàng. Đọc mã ' + code + ' cho người xem, hoặc gửi link.'; });
     hostPeer.on('connection', (conn) => {
-      activeConn = conn;
       conn.on('open', () => {
         statusEl.textContent = 'Người xem đã kết nối, đang gửi hình...';
-        const momBtn = document.getElementById('momMicToggle');
-        let momMuted = false;
-        momBtn.classList.remove('hidden');
-        momBtn.textContent = '🎙️ Mic của mẹ: Bật';
-        momBtn.onclick = () => {
-          momMuted = !momMuted;
-          conn.send({ type: 'muteMic', muted: momMuted });
-          momBtn.textContent = '🎙️ Mic của mẹ: ' + (momMuted ? 'Tắt' : 'Bật');
-        };
-        const call = hostPeer.call(conn.peer, combinedStream);
+        const call = hostPeer.call(conn.peer, screenStream);
         call.on('stream', (remoteStream) => {
           const v = document.getElementById('hostRemoteVideo');
           v.srcObject = remoteStream;
@@ -204,7 +169,7 @@ document.getElementById('hostEnableAudio').onclick = () => {
 };
 
 // ---- VIEWER ----
-let viewerPeer, momStream, momMuted = false;
+let viewerPeer;
 function connectViewer(roomCode){
   const statusEl = document.getElementById('viewerStatus');
   const video = document.getElementById('remoteVideo');
@@ -214,18 +179,12 @@ function connectViewer(roomCode){
     viewerPeer.on('open', () => {
       const conn = viewerPeer.connect('host-' + roomCode);
       conn.on('error', () => { statusEl.textContent = 'Không tìm thấy phòng ' + roomCode + '. Kiểm tra lại mã.'; });
-      conn.on('data', (data) => {
-        if(data && data.type === 'muteMic'){
-          momMuted = data.muted;
-          if(momStream) momStream.getAudioTracks().forEach(t => { t.enabled = !momMuted; });
-        }
-      });
     });
     viewerPeer.on('call', async (call) => {
+      let momStream = null;
       statusEl.textContent = 'Đang xin quyền camera/mic để người thân có thể thấy bạn...';
       try{
         momStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        momStream.getAudioTracks().forEach(t => { t.enabled = !momMuted; });
       }catch(e){ /* mẹ từ chối hoặc máy không có cam — vẫn xem bình thường được */ }
       call.answer(momStream || undefined);
       call.on('stream', (remoteStream) => {
