@@ -44,11 +44,7 @@ video{width:100%;border-radius:12px;background:#000;margin-top:14px;display:bloc
 .small{font-size:0.75rem;color:var(--muted);margin-top:16px;line-height:1.5;}
 #viewerView.connected{padding:0;border:none;background:transparent;box-shadow:none;max-width:100%;}
 #viewerView.connected video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;
-  margin:0;border-radius:0;z-index:5;background:#000;transform:none;top:auto;left:auto;}
-#viewerView.connected.force-landscape video{
-  inset:auto;top:50%;left:50%;width:100vh;height:100vw;
-  transform:translate(-50%,-50%) rotate(90deg);
-}
+  margin:0;border-radius:0;z-index:5;background:#000;}
 body.viewer-fullscreen{padding:0;}
 </style>
 </head>
@@ -90,6 +86,11 @@ body.viewer-fullscreen{padding:0;}
 <div id="tapOverlay" class="overlay hidden">
   <div>🔊 Bấm để bắt đầu xem</div>
   <button class="btn-primary" id="tapPlay">Xem ngay</button>
+</div>
+
+<div id="rotateHint" class="overlay hidden" style="z-index:20;">
+  <div style="font-size:3rem;">📱↻</div>
+  <div>Xoay ngang điện thoại để xem to hơn nhé</div>
 </div>
 
 <p class="small" id="disclaimerText">Kết nối video là trực tiếp giữa 2 trình duyệt (WebRTC). Chỉ có tín hiệu kết nối ban đầu đi qua một máy chủ trung gian miễn phí để 2 bên tìm thấy nhau — không có ai lưu hay xem lại được nội dung.</p>
@@ -220,10 +221,10 @@ document.getElementById('connectBtn').onclick = () => {
 };
 
 function checkOrientation(){
-  const vv = document.getElementById('viewerView');
-  if(!vv.classList.contains('connected')) return;
-  if(window.innerHeight > window.innerWidth){ vv.classList.add('force-landscape'); }
-  else{ vv.classList.remove('force-landscape'); }
+  const hint = document.getElementById('rotateHint');
+  if(!document.getElementById('viewerView').classList.contains('connected')){ hint.classList.add('hidden'); return; }
+  if(window.innerHeight > window.innerWidth){ hint.classList.remove('hidden'); }
+  else{ hint.classList.add('hidden'); }
 }
 window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange', checkOrientation);
