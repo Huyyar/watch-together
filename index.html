@@ -42,6 +42,10 @@ video{width:100%;border-radius:12px;background:#000;margin-top:14px;display:bloc
 .linkbox input{flex:1;font-size:0.8rem;letter-spacing:0;text-align:left;margin:0;}
 .linkbox button{width:auto;padding:12px 14px;}
 .small{font-size:0.75rem;color:var(--muted);margin-top:16px;line-height:1.5;}
+#viewerView.connected{padding:0;border:none;background:transparent;box-shadow:none;max-width:100%;}
+#viewerView.connected video{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;
+  margin:0;border-radius:0;z-index:5;background:#000;}
+body.viewer-fullscreen{padding:0;}
 </style>
 </head>
 <body>
@@ -64,14 +68,18 @@ video{width:100%;border-radius:12px;background:#000;margin-top:14px;display:bloc
   <button class="btn-primary" id="startShare" style="margin-top:16px;">Bắt đầu chia sẻ màn hình</button>
   <p class="small" style="margin-top:8px;">⚠️ Trong hộp thoại Windows hiện ra: chọn tab <b>"Toàn màn hình"</b>, chọn đúng màn hình đang phát trận đấu, rồi tick vào ô <b>"Chia sẻ âm thanh hệ thống"</b> ở góc dưới trái trước khi bấm Chia sẻ.</p>
   <div class="status" id="hostStatus">Chưa chia sẻ</div>
+  <audio id="hostRemoteAudio" autoplay class="hidden"></audio>
+  <button id="hostEnableAudio" class="btn-secondary hidden" style="margin-top:10px;">🔊 Bật loa để nghe người xem nói</button>
 </div>
 
 <div id="viewerView" class="card hidden">
-  <h1>Xem trực tiếp</h1>
-  <p class="sub" id="viewerSub">Nhập mã phòng người kia đọc cho bạn:</p>
-  <input id="codeInput" maxlength="4" placeholder="0000" inputmode="numeric">
-  <button class="btn-primary" id="connectBtn">Kết nối</button>
-  <div class="status" id="viewerStatus"></div>
+  <div id="viewerHeader">
+    <h1>Xem trực tiếp</h1>
+    <p class="sub" id="viewerSub">Nhập mã phòng người kia đọc cho bạn:</p>
+    <input id="codeInput" maxlength="4" placeholder="0000" inputmode="numeric">
+    <button class="btn-primary" id="connectBtn">Kết nối</button>
+    <div class="status" id="viewerStatus"></div>
+  </div>
   <video id="remoteVideo" playsinline class="hidden"></video>
 </div>
 
@@ -80,7 +88,7 @@ video{width:100%;border-radius:12px;background:#000;margin-top:14px;display:bloc
   <button class="btn-primary" id="tapPlay">Xem ngay</button>
 </div>
 
-<p class="small">Kết nối video là trực tiếp giữa 2 trình duyệt (WebRTC). Chỉ có tín hiệu kết nối ban đầu đi qua một máy chủ trung gian miễn phí để 2 bên tìm thấy nhau — không có ai lưu hay xem lại được nội dung.</p>
+<p class="small" id="disclaimerText">Kết nối video là trực tiếp giữa 2 trình duyệt (WebRTC). Chỉ có tín hiệu kết nối ban đầu đi qua một máy chủ trung gian miễn phí để 2 bên tìm thấy nhau — không có ai lưu hay xem lại được nội dung.</p>
 
 <script>
 function randCode(){ return String(Math.floor(1000 + Math.random()*9000)); }
@@ -157,6 +165,12 @@ function connectViewer(roomCode){
           video.muted = false;
           video.play();
           overlay.classList.add('hidden');
+          document.getElementById('viewerHeader').classList.add('hidden');
+          document.getElementById('viewerView').classList.add('connected');
+          document.getElementById('disclaimerText').classList.add('hidden');
+          document.body.classList.add('viewer-fullscreen');
+          if(video.requestFullscreen){ video.requestFullscreen().catch(()=>{}); }
+          else if(video.webkitEnterFullscreen){ try{ video.webkitEnterFullscreen(); }catch(e){} }
         };
       });
     });
