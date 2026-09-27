@@ -284,7 +284,7 @@ function connectViewer(roomCode){
         if(pc){
           pc.getReceivers().forEach((receiver) => {
             if(receiver.track && receiver.track.kind === 'video' && 'playoutDelayHint' in receiver){
-              receiver.playoutDelayHint = 5.0;
+              receiver.playoutDelayHint = 60.0;
             }
           });
         }
